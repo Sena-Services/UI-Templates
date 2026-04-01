@@ -1,13 +1,15 @@
 <template>
-  <div class="sa-bar">
-    <div class="sa-bar__inner">
+  <div class="ao-bar">
+    <div class="ao-bar__inner">
       <ChatInput
         ref="inputRef"
         :placeholder="placeholder"
         :is-streaming="isStreaming"
         :disabled="disabled"
+        :model-label="modelLabel"
         @send="$emit('send', $event)"
         @stop="$emit('stop')"
+        @attach="$emit('attach')"
       />
     </div>
   </div>
@@ -21,9 +23,10 @@ defineProps({
   placeholder: { type: String, default: 'Ask something...' },
   isStreaming: { type: Boolean, default: false },
   disabled: { type: Boolean, default: false },
+  modelLabel: { type: String, default: '' },
 })
 
-defineEmits(['send', 'stop'])
+defineEmits(['send', 'stop', 'attach'])
 
 const inputRef = ref(null)
 
@@ -35,7 +38,7 @@ defineExpose({ focus })
 </script>
 
 <style scoped>
-.sa-bar {
+.ao-bar {
   position: absolute;
   bottom: 0;
   left: 0;
@@ -45,12 +48,9 @@ defineExpose({ focus })
   z-index: 10;
 }
 
-.sa-bar__inner {
+.ao-bar__inner {
   max-width: clamp(480px, 55vw, 720px);
   margin: 0 auto;
   pointer-events: auto;
-  background: var(--sa-bg-surface, #FFFFFF);
-  border-radius: 14px;
-  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);
 }
 </style>
