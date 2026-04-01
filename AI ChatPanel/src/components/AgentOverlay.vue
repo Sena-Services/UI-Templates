@@ -12,6 +12,7 @@
       :disabled="disabled"
       @send="handleSend"
       @stop="handleStop"
+      @attach="$emit('attach')"
     />
   </div>
 </template>
@@ -30,7 +31,7 @@ const props = defineProps({
   disabled: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['navigate', 'action', 'response-complete', 'error'])
+const emit = defineEmits(['navigate', 'action', 'response-complete', 'error', 'attach'])
 
 const chat = useChat({
   agentName: props.agentName,
