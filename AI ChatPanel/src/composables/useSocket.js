@@ -8,28 +8,19 @@ let _connectingPromise = null
 
 /**
  * @param {string|function|null} siteName - Frappe site name for namespace
- * @param {string|null} socketUrl - Socket.IO server URL (e.g. 'http://localhost:9000')
- *   If not provided, tries same origin first, then falls back to port 9000.
+ * @param {string|null} socketUrl - Socket.IO server URL override.
+ *   In dev, pass 'http://localhost:9002' (or whatever socketio_port is).
+ *   In production, omit — nginx proxies /socket.io/ on the same origin.
  */
 export function useSocket(siteName, socketUrl) {
   function resolveSite() {
     if (siteName) return typeof siteName === 'function' ? siteName() : siteName
-    const hostname = window.location.hostname
-    return hostname
-  }
-
-  function resolveSocketUrl() {
-    if (socketUrl) return socketUrl
-    // In dev, the socketio server runs on a separate port (9000 by default).
-    // In production, nginx proxies /socket.io to the socketio server on the same origin.
-    // Try same origin first — if it fails, the reconnection logic handles it.
-    return window.location.origin
+    return window.location.hostname
   }
 
   function connect() {
     const site = resolveSite()
-    const base = resolveSocketUrl()
-    const namespace = `${base}/${site}`
+    const namespace = `/${site}`
 
     if (socket && currentNamespace !== namespace) {
       socket.disconnect()
@@ -41,7 +32,12 @@ export function useSocket(siteName, socketUrl) {
     if (socket) return
 
     currentNamespace = namespace
-    socket = io(namespace, {
+
+    /* If socketUrl is provided (dev), connect to that origin.
+       Otherwise use relative namespace (production — nginx proxies). */
+    const connectTarget = socketUrl ? `${socketUrl}${namespace}` : namespace
+
+    socket = io(connectTarget, {
       withCredentials: true,
       transports: ['polling', 'websocket'],
       reconnection: true,
@@ -57,6 +53,7 @@ export function useSocket(siteName, socketUrl) {
 
   function on(event, handler) {
     if (!socket) connect()
+    if (!socket) return
     socket.on(event, handler)
   }
 

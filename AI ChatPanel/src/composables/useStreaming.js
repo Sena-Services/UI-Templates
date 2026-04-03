@@ -10,7 +10,13 @@ const THINKING_THROTTLE_MS = 50
 const FIRST_EVENT_TIMEOUT_MS = 45000
 const STREAM_TIMEOUT_MS = 600000
 
-export function useStreaming(socket) {
+/**
+ * @param {Object} socket - useSocket instance for direct Socket.IO mode
+ * @param {Object} [options]
+ * @param {boolean} [options.bridgeMode] - If true, also listen for streaming
+ *   events via window postMessage (parent relays them from Socket.IO).
+ */
+export function useStreaming(socket, options = {}) {
   const isStreaming = ref(false)
   const streamingText = ref('')
   const thinkingText = ref('')
@@ -182,6 +188,28 @@ export function useStreaming(socket) {
     toolCalls.value = updated
   }
 
+  // ── PostMessage bridge listener ─────────────────────────
+  // In bridge mode, the parent (AgentIframeSurface) relays Socket.IO events
+  // via postMessage with the full event data. Route them to the same handlers.
+  const _postMessageHandlers = {
+    [AGENT_TOKEN]: handleToken,
+    [AGENT_THINKING]: handleThinking,
+    [AGENT_TOOL_CALL]: handleToolCall,
+    [AGENT_TOOL_RESULT]: handleToolResult,
+    [AGENT_TURN_DONE]: handleTurnDone,
+    [AGENT_DONE]: handleDone,
+    [AGENT_ERROR]: handleError,
+    [AGENT_INJECT_ACK]: handleInjectAck,
+    [APPROVAL_UPDATE]: handleApprovalUpdate,
+  }
+
+  function handlePostMessage(event) {
+    const data = event.data
+    if (!data || typeof data !== 'object' || !data.type) return
+    const handler = _postMessageHandlers[data.type]
+    if (handler) handler(data)
+  }
+
   function registerListeners() {
     socket.on(AGENT_TOKEN, handleToken)
     socket.on(AGENT_THINKING, handleThinking)
@@ -192,6 +220,8 @@ export function useStreaming(socket) {
     socket.on(AGENT_ERROR, handleError)
     socket.on(AGENT_INJECT_ACK, handleInjectAck)
     socket.on(APPROVAL_UPDATE, handleApprovalUpdate)
+    // Also listen for postMessage relays from parent iframe
+    window.addEventListener('message', handlePostMessage)
   }
 
   function cleanup() {
@@ -204,6 +234,7 @@ export function useStreaming(socket) {
     socket.off(AGENT_ERROR, handleError)
     socket.off(AGENT_INJECT_ACK, handleInjectAck)
     socket.off(APPROVAL_UPDATE, handleApprovalUpdate)
+    window.removeEventListener('message', handlePostMessage)
     if (firstEventTimer) { clearTimeout(firstEventTimer); firstEventTimer = null }
     if (streamTimer) { clearTimeout(streamTimer); streamTimer = null }
     if (responseTimer) { clearTimeout(responseTimer); responseTimer = null }
@@ -225,15 +256,15 @@ export function useStreaming(socket) {
     responseAcc = ''
     thinkingAcc = ''
 
-    socket.ensureConnected(15000).then(() => {
-      registerListeners()
-      firstEventTimer = setTimeout(() => {
-        if (!isStreaming.value) return
-        handleError({ session_key: activeSessionKey.value, message: 'Agent is not responding.' })
-      }, FIRST_EVENT_TIMEOUT_MS)
-    }).catch(() => {
-      registerListeners()
-    })
+    // Register listeners immediately — postMessage relay works without socket.
+    // Socket connection happens in the background for direct mode.
+    registerListeners()
+    socket.ensureConnected(15000).catch(() => {})
+
+    firstEventTimer = setTimeout(() => {
+      if (!isStreaming.value) return
+      handleError({ session_key: activeSessionKey.value, message: 'Agent is not responding.' })
+    }, FIRST_EVENT_TIMEOUT_MS)
 
     streamTimer = setTimeout(() => {
       if (!isStreaming.value) return

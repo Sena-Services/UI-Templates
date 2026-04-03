@@ -1,18 +1,36 @@
 <template>
   <div class="ao-container">
     <ResponseOverlay
-      :message="lastAssistantMessage"
+      :messages="messages"
       :visible="overlayVisible"
-      @dismiss="dismissOverlay"
+      @dismiss="toggleOverlay"
     />
+    <!-- Show button when overlay is hidden but there are messages -->
+    <Transition name="ao-pill">
+      <button
+        v-if="!overlayVisible && messages.length > 0"
+        class="ao-show-btn"
+        @click="toggleOverlay"
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        Assistant
+      </button>
+    </Transition>
     <ChatBar
       ref="barRef"
       :placeholder="placeholder"
       :is-streaming="isStreaming"
       :disabled="disabled"
+      :instances="chat.instances.value"
+      :active-instance-id="chat.activeInstanceId.value"
+      :active-instance-label="chat.activeInstanceLabel.value"
       @send="handleSend"
       @stop="handleStop"
       @attach="$emit('attach')"
+      @select-instance="handleSwitchInstance"
+      @create-instance="handleCreateInstance"
+      @delete-instance="handleDeleteInstance"
+      @navigate="handleNavigate"
     />
   </div>
 </template>
@@ -51,16 +69,11 @@ const lastAssistantMessage = computed(() => {
   return null
 })
 
-/* Show overlay when assistant starts responding */
+/* Only open overlay when a new assistant message starts streaming */
 watch(
-  () => messages.value.length,
-  (newLen, oldLen) => {
-    if (newLen > oldLen) {
-      const last = messages.value[newLen - 1]
-      if (last?.role === 'assistant') {
-        overlayVisible.value = true
-      }
-    }
+  () => isStreaming.value,
+  (val) => {
+    if (val) overlayVisible.value = true
   }
 )
 
@@ -111,10 +124,34 @@ function handleStop() {
   chat.cancelStreaming()
 }
 
+function handleNavigate(target) {
+  if (!target) return
+  emit('navigate', target)
+  overlayVisible.value = false
+}
+
+async function handleSwitchInstance(instanceId) {
+  await chat.switchInstance(instanceId)
+  // Show overlay if the switched instance has messages
+  overlayVisible.value = messages.value.length > 0
+}
+
+async function handleCreateInstance() {
+  await chat.createInstance()
+  overlayVisible.value = false
+}
+
+async function handleDeleteInstance(instanceId) {
+  await chat.deleteInstance(instanceId)
+  overlayVisible.value = messages.value.length > 0
+}
+
+function toggleOverlay() {
+  overlayVisible.value = !overlayVisible.value
+}
+
 function dismissOverlay() {
-  if (!isStreaming.value) {
-    overlayVisible.value = false
-  }
+  overlayVisible.value = false
 }
 
 defineExpose({
@@ -140,4 +177,44 @@ defineExpose({
   --sa-text-muted: var(--text-muted, #9B9B9B);
   --sa-bg-hover: var(--bg-hover, rgba(0, 0, 0, 0.04));
 }
+
+.ao-show-btn {
+  position: absolute;
+  bottom: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  background: #F8F7F4;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: all 0.15s ease;
+}
+
+.ao-show-btn:hover {
+  background: #FAF9F5;
+  border-color: rgba(245, 158, 11, 0.35);
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.08);
+  transform: translateX(-50%) translateY(-1px);
+}
+
+.ao-show-btn svg {
+  opacity: 0.5;
+  stroke: #64748B;
+}
+
+.ao-pill-enter-active { transition: opacity 0.2s ease, transform 0.2s ease; }
+.ao-pill-leave-active { transition: opacity 0.1s ease, transform 0.1s ease; }
+.ao-pill-enter-from { opacity: 0; transform: translateX(-50%) translateY(6px); }
+.ao-pill-leave-to { opacity: 0; transform: translateX(-50%) translateY(6px); }
 </style>

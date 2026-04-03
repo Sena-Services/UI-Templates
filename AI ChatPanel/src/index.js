@@ -22,3 +22,4 @@ export { useStreaming } from './composables/useStreaming'
 // Utils
 export { cardRegistry, registerCard, registerCards } from './utils/cardRegistry'
 export { renderMarkdown, escapeHtml, sanitizeUrl } from './utils/markdown'
+export { createBridge } from './utils/senaBridge'

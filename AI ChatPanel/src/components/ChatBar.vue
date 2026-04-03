@@ -7,9 +7,16 @@
         :is-streaming="isStreaming"
         :disabled="disabled"
         :model-label="modelLabel"
+        :instances="instances"
+        :active-instance-id="activeInstanceId"
+        :active-instance-label="activeInstanceLabel"
         @send="$emit('send', $event)"
         @stop="$emit('stop')"
         @attach="$emit('attach')"
+        @select-instance="$emit('select-instance', $event)"
+        @create-instance="$emit('create-instance')"
+        @delete-instance="$emit('delete-instance', $event)"
+        @navigate="$emit('navigate', $event)"
       />
     </div>
   </div>
@@ -24,9 +31,12 @@ defineProps({
   isStreaming: { type: Boolean, default: false },
   disabled: { type: Boolean, default: false },
   modelLabel: { type: String, default: '' },
+  instances: { type: Array, default: () => [] },
+  activeInstanceId: { type: String, default: 'default' },
+  activeInstanceLabel: { type: String, default: 'Chat 1' },
 })
 
-defineEmits(['send', 'stop', 'attach'])
+defineEmits(['send', 'stop', 'attach', 'select-instance', 'create-instance', 'delete-instance', 'navigate'])
 
 const inputRef = ref(null)
 
