@@ -52,11 +52,18 @@ export function useRbac(opts) {
 	})()
 
 	// Allowed slug set:
-	//  - null → context not loaded yet OR endpoint errored → degrade to "allow all"
+	//  - null → context not loaded yet, endpoint errored, OR user is unrestricted
+	//           → degrade to "allow all" (trust the manifest)
 	//  - Set → only these slugs are navigable
+	//
+	// The backend sets `unrestricted: true` when it can't enumerate every
+	// screen the app declares (common case: no restriction rows for this
+	// user's roles). In that mode we trust the frontend manifest entirely.
 	const allowedSlugs = computed(() => {
 		const c = context.value
-		if (!c || !Array.isArray(c.screens) || c.screens.length === 0) return null
+		if (!c) return null
+		if (c.unrestricted) return null
+		if (!Array.isArray(c.screens) || c.screens.length === 0) return null
 		return new Set(c.screens.map(s => s.screen_id))
 	})
 
