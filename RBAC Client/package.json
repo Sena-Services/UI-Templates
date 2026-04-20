@@ -1,0 +1,11 @@
+{
+  "name": "sena-rbac-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.js",
+  "description": "RBAC integration helper for Sena agent apps — one composable + one manifest.",
+  "peerDependencies": {
+    "vue": "^3.0.0"
+  }
+}
